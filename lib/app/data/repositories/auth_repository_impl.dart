@@ -21,4 +21,12 @@ class AuthRepositoryImpl implements AuthRepository {
       role: role,
     );
   }
+
+  @override
+  Future<UserEntity> signIn({
+    required String email,
+    required String password,
+  }) async {
+    return await remoteDataSource.signIn(email: email, password: password);
+  }
 }

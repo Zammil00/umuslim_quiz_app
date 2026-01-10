@@ -9,6 +9,8 @@ abstract class AuthRemoteDataSource {
     required String fullName,
     required UserRole role,
   });
+
+  Future<UserModel> signIn({required String email, required String password});
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -54,5 +56,35 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     // Since we just inserted it, we can construct it back or fetch it.
     // For efficiency, we construct it.
     return UserModel.fromJson(profileData, email);
+  }
+
+  @override
+  Future<UserModel> signIn({
+    required String email,
+    required String password,
+  }) async {
+    // 1. Sign in with Supabase
+    final AuthResponse res = await supabaseClient.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+
+    final User? user = res.user;
+    if (user == null) {
+      throw Exception('Login failed: User is null');
+    }
+
+    // 2. Fetch profile data
+    try {
+      final data = await supabaseClient
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .single();
+
+      return UserModel.fromJson(data, email);
+    } catch (e) {
+      throw Exception('Failed to fetch profile: $e');
+    }
   }
 }

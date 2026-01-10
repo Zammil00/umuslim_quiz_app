@@ -7,4 +7,6 @@ abstract class AuthRepository {
     required String fullName,
     required UserRole role,
   });
+
+  Future<UserEntity> signIn({required String email, required String password});
 }
