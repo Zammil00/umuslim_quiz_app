@@ -80,10 +80,18 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           .from('profiles')
           .select()
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
+
+      if (data == null) {
+        // Profile not found, this could be a data inconsistency
+        throw Exception('User profile not found. Please contact support.');
+      }
 
       return UserModel.fromJson(data, email);
     } catch (e) {
+      if (e.toString().contains('User profile not found')) {
+        rethrow;
+      }
       throw Exception('Failed to fetch profile: $e');
     }
   }
