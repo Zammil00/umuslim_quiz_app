@@ -54,12 +54,16 @@ class RegisterController extends GetxController {
       // Navigate to Home or Login
       Get.offAllNamed('/home'); // Or whatever the initial route is
     } catch (e) {
+      print(
+        'Registration Error: $e',
+      ); // Print full error to console for debugging
       Get.snackbar(
         'Error',
         e.toString(),
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        duration: const Duration(seconds: 5), // User needs time to read
       );
     } finally {
       isLoading.value = false;

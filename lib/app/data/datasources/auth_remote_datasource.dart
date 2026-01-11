@@ -29,6 +29,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final AuthResponse res = await supabaseClient.auth.signUp(
       email: email,
       password: password,
+      data: {
+        'full_name': fullName,
+        'role': role.name,
+      }, // Optional: storing metadata in auth.users as well
     );
 
     final User? user = res.user;
@@ -37,25 +41,47 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw Exception('Registration failed: User is null');
     }
 
+    if (res.session == null) {
+      // Session might be null if email confirmation is required.
+      // We can't insert into profiles as the user if we don't have a session.
+      // Depending on app settings, we might want to throw or just warn.
+      throw Exception(
+        'Registration successful, but no session returned. Please check your email for confirmation link or disable "Confirm Email" in Supabase settings.',
+      );
+    }
+
     // 2. Insert into public.profiles
+    // Table definition:
+    // create table public.profiles (
+    //   id uuid not null,
+    //   full_name text not null,
+    //   role public.user_role not null,
+    //   created_at timestamp with time zone null default now(),
+    //   constraint profiles_pkey primary key (id),
+    //   constraint profiles_id_fkey foreign KEY (id) references auth.users (id) on delete CASCADE
+    // )
+
     final profileData = {
       'id': user.id,
       'full_name': fullName,
-      'role': role.name, // 'admin' or 'user'
-      'created_at': DateTime.now().toIso8601String(),
+      'role': role.name, // Postgres enum 'user' or 'admin'
+      // 'created_at': Let DB handle default now()
     };
 
     try {
-      await supabaseClient.from('profiles').insert(profileData);
+      // Use upsert to check for existence or just overwrite to be safe
+      await supabaseClient.from('profiles').upsert(profileData).select();
     } catch (e) {
-      // If profile insertion fails, we might want to clean up the auth user or throw specific error
+      // If profile insertion fails, we should inform the user.
       throw Exception('Failed to create profile: $e');
     }
 
     // Return the UserModel
-    // Since we just inserted it, we can construct it back or fetch it.
-    // For efficiency, we construct it.
-    return UserModel.fromJson(profileData, email);
+    return UserModel.fromJson({
+      ...profileData,
+      'email': email,
+      'created_at': DateTime.now().toIso8601String(), // Fallback for model
+    }, email);
   }
 
   @override
